@@ -70,7 +70,6 @@ open_system(mdlName);
 % --- Parameters ---
 K_pos = 10;
 K_ori = 10;
-K_null = 1;
 Kn_val = 5; % Gain for null space stabilization
 q_rest = zeros(n, 1);
 q0 = [0, 0.2, 0, -0.2, 0, 0.2, 0]'; % Initial joint configuration
@@ -84,50 +83,24 @@ add_block('simulink/Sources/Constant', [mdlName '/p_des'], 'Value', mat2str(p_de
 add_block('simulink/Sources/Constant', [mdlName '/R_des'], 'Value', mat2str(R_des), 'Position', [50, 100, 150, 150]);
 add_block('simulink/Sources/Constant', [mdlName '/q_rest'], 'Value', mat2str(q_rest), 'Position', [50, 200, 150, 230]);
 
+% Add constants for Gains so they can be changed without rebuilding the block
+add_block('simulink/Sources/Constant', [mdlName '/K_pos'], 'Value', num2str(K_pos), 'Position', [50, 250, 150, 280]);
+add_block('simulink/Sources/Constant', [mdlName '/K_ori'], 'Value', num2str(K_ori), 'Position', [50, 300, 150, 330]);
+add_block('simulink/Sources/Constant', [mdlName '/Kn_val'], 'Value', num2str(Kn_val), 'Position', [50, 350, 150, 380]);
+
 % --- CLIK Controller Block (MATLAB Function) ---
-clikFunc = sprintf(['function q_dot = clik_controller(p_des, R_des, p_curr, R_curr, J, q_curr, q_rest)\n', ...
-    '%% CLIK Controller: Task space tracking with null space stabilization\n', ...
-    '%% gains according to classroom convention\n', ...
-    'Kp = %d * eye(3);\n', ...
-    'Ko = %d * eye(3);\n', ...
-    'K  = [Kp, zeros(3,3); zeros(3,3), Ko];\n', ...
-    '\n', ...
-    'Kn = %d * eye(7);\n', ...
-    '\n', ...
-    '%% 1. Errors\n', ...
-    'ep = p_des(:) - p_curr(:);\n', ...
-    '\n', ...
-    '%% Orientation error (geometric)\n', ...
-    'ne = R_curr(:,1); se = R_curr(:,2); ae = R_curr(:,3);\n', ...
-    'nd = R_des(:,1); sd = R_des(:,2); ad = R_des(:,3);\n', ...
-    'eo = 0.5 * (cross(ne, nd) + cross(se, sd) + cross(ae, ad));\n', ...
-    '\n', ...
-    'e = [ep; eo];\n', ...
-    '\n', ...
-    '%% 2. CLIK law\n', ...
-    'Jinv = pinv(J, 1e-6);\n', ...
-    '\n', ...
-    '%% Primary task (IK)\n', ...
-    'v = K * e;\n', ...
-    'q_dot_p = Jinv * v;\n', ...
-    '\n', ...
-    '%% Secondary task (Null space projection)\n', ...
-    'P = eye(7) - Jinv * J;\n', ...
-    'q_dot_n = P * Kn * (q_rest(:) - q_curr(:));\n', ...
-    '\n', ...
-    '%% Final joint velocity\n', ...
-    'q_dot = q_dot_p + q_dot_n;\n', ...
-    'end'], K_pos, K_ori, Kn_val);
+% Now we just call the external file
+clikFunc = 'function q_dot = clik_controller(p_des, R_des, p_curr, R_curr, J, q_curr, q_rest, K_pos, K_ori, Kn_val)\n    q_dot = clik_controller_logic(p_des, R_des, p_curr, R_curr, J, q_curr, q_rest, K_pos, K_ori, Kn_val);\nend';
 
 ctrlBlk = [mdlName '/CLIK_Controller'];
 if ~isempty(find_system(mdlName, 'Name', 'CLIK_Controller'))
     delete_block(ctrlBlk);
 end
-add_block('simulink/User-Defined Functions/MATLAB Function', ctrlBlk, 'Position', [400, 100, 550, 250]);
+add_block('simulink/User-Defined Functions/MATLAB Function', ctrlBlk, 'Position', [400, 100, 550, 300]);
 
 rt = sfroot;
 block = rt.find('-isa', 'Stateflow.EMChart', 'Path', ctrlBlk);
-block.Script = clikFunc;
+block.Script = sprintf(clikFunc);
 
 % --- Fix: Explicitly set input/output dimensions to avoid inference errors ---
 inputs = block.find('-isa', 'Stateflow.Data', 'Scope', 'Input');
@@ -141,6 +114,8 @@ for i = 1:length(inputs)
             inputs(i).Props.Array.Size = '[6, 7]';
         case {'q_curr', 'q_rest'}
             inputs(i).Props.Array.Size = '[7, 1]';
+        case {'K_pos', 'K_ori', 'Kn_val'}
+            inputs(i).Props.Array.Size = '1';
     end
 end
 
@@ -223,6 +198,9 @@ Simulink.connectBlocks(ph_ctrl.Outport(1), ph_int.Inport(1)); % q_dot
 Simulink.connectBlocks([mdlName '/p_des'], [ctrlBlk '/1']);
 Simulink.connectBlocks([mdlName '/R_des'], [ctrlBlk '/2']);
 Simulink.connectBlocks([mdlName '/q_rest'], [ctrlBlk '/7']);
+Simulink.connectBlocks([mdlName '/K_pos'], [ctrlBlk '/8']);
+Simulink.connectBlocks([mdlName '/K_ori'], [ctrlBlk '/9']);
+Simulink.connectBlocks([mdlName '/Kn_val'], [ctrlBlk '/10']);
 
 % --- Monitoring ---
 % Add displays for current p and R
@@ -286,19 +264,47 @@ if isempty(find_system(mdlName, 'Name', 'ToWS_q'))
     Simulink.connectBlocks(ph_int.Outport(1), get_param([mdlName '/ToWS_q'], 'PortHandles').Inport(1));
 end
 
+% Add ToWorkspace for Errors
+if isempty(find_system(mdlName, 'Name', 'ToWS_err'))
+    add_block('simulink/Sinks/To Workspace', [mdlName '/ToWS_err'], 'VariableName', 'err_sim', 'SaveFormat', 'Timeseries', 'Position', [700, 520, 750, 540]);
+    % Create a Mux to combine Pos and Ori error for logging
+    muxErr = [mdlName '/Mux_Err'];
+    if isempty(find_system(mdlName, 'Name', 'Mux_Err'))
+        add_block('simulink/Signal Routing/Mux', muxErr, 'Inputs', '2', 'Position', [650, 510, 660, 550]);
+    end
+    Simulink.connectBlocks([errBlk '/1'], [muxErr '/1']);
+    Simulink.connectBlocks([errBlk '/2'], [muxErr '/2']);
+    Simulink.connectBlocks(get_param(muxErr, 'PortHandles').Outport(1), get_param([mdlName '/ToWS_err'], 'PortHandles').Inport(1));
+end
+
 save_system(mdlName);
-fprintf('Model saved in %s. Running again...\n', this_dir);
+fprintf('Model saved in %s. Running simulation...\n', this_dir);
 simOut = sim(mdlName);
 
+% --- Plot 1: Joint Positions ---
 q_ts = simOut.find('q_sim');
 if ~isempty(q_ts)
-    figure;
+    figure('Name', 'Joint Positions');
     data = squeeze(q_ts.Data);
     if size(data, 1) == 7 && size(data, 2) ~= 7, data = data'; end
-    plot(q_ts.Time, data);
+    plot(q_ts.Time, data, 'LineWidth', 1.5);
     title('Joint Positions during CLIK');
     xlabel('Time (s)'); ylabel('q (rad)');
     legend('q1','q2','q3','q4','q5','q6','q7');
+    grid on;
+end
+
+% --- Plot 2: Error Convergence ---
+err_ts = simOut.find('err_sim');
+if ~isempty(err_ts)
+    figure('Name', 'Error Convergence');
+    data = squeeze(err_ts.Data);
+    if size(data, 1) == 2 && size(data, 2) ~= 2, data = data'; end
+    semilogy(err_ts.Time, data(:,1), 'b', 'LineWidth', 1.5); hold on;
+    semilogy(err_ts.Time, data(:,2), 'r', 'LineWidth', 1.5);
+    title('CLIK Error Convergence (Log Scale)');
+    xlabel('Time (s)'); ylabel('Error Norm');
+    legend('Position Error (m)', 'Orientation Error');
     grid on;
 end
 
