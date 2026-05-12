@@ -19,25 +19,33 @@ eval_J = @(qs) double(subs(J_sym, vars, qs));
 
 % Numerical Jacobian function
 function Jn = numerical_jacobian(q, eval_T_func)
-    dq = 1e-6;
+    dq = 1e-7;
     n = length(q);
     Jn = zeros(6, n);
-    T0 = eval_T_func(q);
-    p0 = T0(1:3, 4);
-    R0 = T0(1:3, 1:3);
     
     for i = 1:n
-        qi = q;
-        qi(i) = qi(i) + dq;
-        Ti = eval_T_func(qi);
-        pi = Ti(1:3, 4);
-        Ri = Ti(1:3, 1:3);
+        % Central difference
+        qp = q; qp(i) = qp(i) + dq;
+        qm = q; qm(i) = qm(i) - dq;
+        
+        Tp = eval_T_func(qp);
+        pp = Tp(1:3, 4);
+        Rp = Tp(1:3, 1:3);
+        
+        Tm = eval_T_func(qm);
+        pm = Tm(1:3, 4);
+        Rm = Tm(1:3, 1:3);
         
         % Linear part: dp/dqi
-        Jn(1:3, i) = (pi - p0) / dq;
+        Jn(1:3, i) = (pp - pm) / (2 * dq);
         
         % Angular part: extraction from S(w) = dR/dqi * R'
-        Sw = (Ri - R0) / dq * R0';
+        % Use central difference for dR/dqi and evaluate R at the center
+        T0 = eval_T_func(q);
+        R0 = T0(1:3, 1:3);
+        dRdqi = (Rp - Rm) / (2 * dq);
+        Sw = dRdqi * R0';
+        
         % w = [S(3,2); S(1,3); S(2,1)]
         Jn(4:6, i) = [Sw(3,2); Sw(1,3); Sw(2,1)];
     end
@@ -74,7 +82,7 @@ for k = 1:size(tests, 1)
     
     if rk < 6
         fprintf('  >>> STATUS: SINGULAR CONFIGURATION (Rank < 6) <<<\n');
-        [~, V] = sorted_svd(Ja); % Optional: show null space
+        [~, ~, V] = sorted_svd(Ja); % Retrieve null-space vectors (V is 3rd output)
     else
         fprintf('  >>> STATUS: FULL RANK <<<\n');
     end
