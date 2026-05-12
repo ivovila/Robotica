@@ -1,0 +1,163 @@
+#VRML V2.0 utf8
+
+WorldInfo {
+  title "Frame Axes"
+  info [ "Small XYZ triad centered at the origin" ]
+}
+
+NavigationInfo {
+  type ["EXAMINE", "ANY"]
+}
+
+DEF Red Appearance {
+  material Material {
+    diffuseColor 1 0 0
+    ambientIntensity 0.2
+    shininess 0.2
+  }
+}
+
+DEF Green Appearance {
+  material Material {
+    diffuseColor 0 1 0
+    ambientIntensity 0.2
+    shininess 0.2
+  }
+}
+
+DEF Blue Appearance {
+  material Material {
+    diffuseColor 0 0 1
+    ambientIntensity 0.2
+    shininess 0.2
+  }
+}
+
+DEF Gray Appearance {
+  material Material {
+    diffuseColor 0.7 0.7 0.7
+    ambientIntensity 0.2
+    shininess 0.1
+  }
+}
+
+# Dimensions
+# shaft length = 0.16
+# head length  = 0.04
+# total axis length = 0.20
+# shaft radius = 0.005
+# head radius  = 0.012
+
+Transform {
+  children [
+
+    # Origin sphere
+    Shape {
+      appearance USE Gray
+      geometry Sphere {
+        radius 0.01
+      }
+    }
+
+    # =========================
+    # X axis (+X) - RED
+    # =========================
+
+    # Shaft
+    Transform {
+      translation 0.08 0 0
+      rotation 0 0 1 -1.57079632679
+      children [
+        Shape {
+          appearance USE Red
+          geometry Cylinder {
+            radius 0.005
+            height 0.16
+          }
+        }
+      ]
+    }
+
+    # Arrow head
+    Transform {
+      translation 0.18 0 0
+      rotation 0 0 1 -1.57079632679
+      children [
+        Shape {
+          appearance USE Red
+          geometry Cone {
+            bottomRadius 0.012
+            height 0.04
+          }
+        }
+      ]
+    }
+
+    # =========================
+    # Y axis (+Y) - GREEN
+    # =========================
+
+    # Shaft
+    Transform {
+      translation 0 0 -0.08
+      rotation 1 0 0 -1.57079632679
+      children [
+        Shape {
+          appearance USE Green
+          geometry Cylinder {
+            radius 0.005
+            height 0.16
+          }
+        }
+      ]
+    }
+
+    # Arrow head
+    Transform {
+      translation 0 0 -0.18
+      rotation 1 0 0 -1.57079632679
+      children [
+        Shape {
+          appearance USE Green
+          geometry Cone {
+            bottomRadius 0.012
+            height 0.04
+          }
+        }
+      ]
+    }
+
+    # =========================
+    # Z axis (+Z) - BLUE
+    # =========================
+
+    # Shaft
+    Transform {
+      translation 0 0.08 0
+      children [
+        Shape {
+          appearance USE Blue
+          geometry Cylinder {
+            radius 0.005
+            height 0.16
+          }
+        }
+      ]
+    }
+
+    # Arrow head
+    Transform {
+      translation 0 0.18 0
+      children [
+        Shape {
+          appearance USE Blue
+          geometry Cone {
+            bottomRadius 0.012
+            height 0.04
+          }
+        }
+      ]
+    }
+
+  ]
+}
