@@ -25,28 +25,40 @@
 \@writefile{toc}{\contentsline {section}{\numberline {3}Inverse Kinematics (Closed-Form)}{5}{section.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Kinematic Decoupling Approach}{5}{subsection.3.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Closed-Form Solution}{6}{subsection.3.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Singularity Conditions}{6}{subsection.3.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Closed-form IK singularity conditions.}}{6}{table.caption.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Validation}{6}{subsection.3.4}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Validation results for Inverse Kinematics showing errors below $10^{-8}$.}}{6}{figure.caption.9}\protected@file@percent }
-\newlabel{fig:ik_validation_results}{{4}{6}{Validation results for Inverse Kinematics showing errors below $10^{-8}$}{figure.caption.9}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Geometric Jacobian}{6}{section.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Definition}{6}{subsection.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Simulink Model}{7}{subsection.4.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Jacobian block in Simulink.}}{7}{figure.caption.10}\protected@file@percent }
-\newlabel{fig:jacobian_block}{{5}{7}{Jacobian block in Simulink}{figure.caption.10}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Validation -- Numerical Differentiation}{7}{subsection.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Closed Loop Inverse Kinematics (CLIK)}{7}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}CLIK Law with Null-Space Stabilisation}{7}{subsection.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Simulink Model}{8}{subsection.5.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Complete CLIK simulation model (LBR\_MED\_CLIK\_Simul.slx).}}{8}{figure.caption.11}\protected@file@percent }
-\newlabel{fig:clik_simulink}{{6}{8}{Complete CLIK simulation model (LBR\_MED\_CLIK\_Simul.slx)}{figure.caption.11}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Validation Results}{8}{subsection.5.3}\protected@file@percent }
-\newlabel{fig:clik_joints}{{7a}{8}{Joint positions during CLIK}{figure.caption.12}{}}
-\newlabel{sub@fig:clik_joints}{{a}{8}{Joint positions during CLIK}{figure.caption.12}{}}
-\newlabel{fig:clik_errors}{{7b}{8}{Error convergence (log scale)}{figure.caption.12}{}}
-\newlabel{sub@fig:clik_errors}{{b}{8}{Error convergence (log scale)}{figure.caption.12}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces CLIK validation results showing stable convergence.}}{8}{figure.caption.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Code Files Summary}{8}{section.6}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Main MATLAB and Simulink files.}}{8}{table.caption.13}\protected@file@percent }
-\gdef \@abspage@last{8}
+\newlabel{eq:q6}{{10}{6}{Steps 5--7 -- Wrist angles $q_5$, $q_6$, $q_7$}{equation.10}{}}
+\newlabel{eq:q5}{{11}{6}{Steps 5--7 -- Wrist angles $q_5$, $q_6$, $q_7$}{equation.11}{}}
+\newlabel{eq:q7}{{12}{6}{Steps 5--7 -- Wrist angles $q_5$, $q_6$, $q_7$}{equation.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Singularity Conditions}{7}{subsection.3.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Closed-form IK singularity conditions.}}{7}{table.caption.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Simulink Model}{7}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Validation}{7}{subsection.3.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Validation results for Inverse Kinematics showing errors below $10^{-8}$.}}{7}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:ik_validation_results}{{4}{7}{Validation results for Inverse Kinematics showing errors below $10^{-8}$}{figure.caption.14}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Geometric Jacobian}{7}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Definition}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Simulink Model}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Jacobian block in Simulink.}}{8}{figure.caption.15}\protected@file@percent }
+\newlabel{fig:jacobian_block}{{5}{8}{Jacobian block in Simulink}{figure.caption.15}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Validation -- Numerical Differentiation}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Jacobian validation: Frobenius-norm error between analytical and numerical Jacobian.}}{8}{table.caption.16}\protected@file@percent }
+\newlabel{tab:jac_validation}{{5}{8}{Jacobian validation: Frobenius-norm error between analytical and numerical Jacobian}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Singularity Analysis}{8}{subsection.4.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Jacobian rank and condition number at singular and non-singular configurations.}}{8}{table.caption.17}\protected@file@percent }
+\newlabel{tab:jac_singularity}{{6}{8}{Jacobian rank and condition number at singular and non-singular configurations}{table.caption.17}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Closed Loop Inverse Kinematics (CLIK)}{9}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}CLIK Law with Null-Space Stabilisation}{9}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Simulink Model}{9}{subsection.5.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Complete CLIK simulation model (LBR\_MED\_CLIK\_Simul.slx).}}{9}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:clik_simulink}{{6}{9}{Complete CLIK simulation model (LBR\_MED\_CLIK\_Simul.slx)}{figure.caption.18}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Validation Results}{9}{subsection.5.3}\protected@file@percent }
+\newlabel{fig:clik_joints}{{7a}{10}{Joint positions during CLIK}{figure.caption.19}{}}
+\newlabel{sub@fig:clik_joints}{{a}{10}{Joint positions during CLIK}{figure.caption.19}{}}
+\newlabel{fig:clik_errors}{{7b}{10}{Error convergence (log scale)}{figure.caption.19}{}}
+\newlabel{sub@fig:clik_errors}{{b}{10}{Error convergence (log scale)}{figure.caption.19}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces CLIK validation results showing stable convergence.}}{10}{figure.caption.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Comparison with Analytical IK (Point~3)}{10}{subsection.5.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Comparison of CLIK steady-state and analytical IK joint angles (rad).}}{10}{table.caption.20}\protected@file@percent }
+\newlabel{tab:clik_vs_ik}{{7}{10}{Comparison of CLIK steady-state and analytical IK joint angles (rad)}{table.caption.20}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Code Files Summary}{10}{section.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Main MATLAB and Simulink files.}}{10}{table.caption.21}\protected@file@percent }
+\gdef \@abspage@last{10}

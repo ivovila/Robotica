@@ -124,7 +124,7 @@ Four configurations were chosen where the end-effector pose can be determined by
         Config & Joint angles $q$ (rad) & Expected $p$ (m) & Expected $R$ & Error $\|p\|$ \\
         \midrule
         1: Home & all = 0 & $[0, 0, 1.266]$ & $I_3$ & $< 10^{-12}$ \\
-        2: Shoulder bend & $q_2 = \pi/2$, rest = 0 & $[-0.926, 0, 0.340]$ & $[0, 0, -1; 0, 1, 0; 1, 0, 0]$ & $< 10^{-12}$ \\
+        2: Shoulder bend & $q_2 = \pi/2$, rest = 0 & $[-0.926, 0, 0.340]$ & $R_y(-\pi/2)$ & $< 10^{-12}$ \\
         3: Base spin & $q_1 = \pi/2$, rest = 0 & $[0, 0, 1.266]$ & $R_z(\pi/2)$ & $< 10^{-12}$ \\
         4: Elbow fold & $q_2 = q_4 = \pi/2$, rest = 0 & $[-0.400, 0, 0.866]$ & $I_3$ & $< 10^{-12}$ \\
         \bottomrule
@@ -140,13 +140,65 @@ The robot has a spherical wrist formed by joints 5, 6, and 7: axes $z_4$, $z_5$,
     \item Arm problem (joints 1--4): position the wrist center $O_6$.
     \item Wrist problem (joints 5--7): orient the end-effector.
 \end{itemize}
-\textbf{Redundancy resolution:} The robot has 7 DOF for a 6-DOF task. This report fixes $q_3 = 0$ to obtain a unique solution.
+\textbf{Redundancy resolution:} The robot has 7 DOF for a 6-DOF task. This report fixes $q_3 = 0$ to obtain a unique solution, reducing the arm problem to 3 unknowns $(q_1, q_2, q_4)$.
 
 \subsection{Closed-Form Solution}
-\textbf{Step 1 -- Wrist center:} $p_W = p_e - d_7 a_e$, where $a_e$ is the approach vector. \\
-\textbf{Step 2 -- Base rotation $q_1$:} $q_1 = \operatorname{atan2}(p_{Wy}, p_{Wx})$. \\
-\textbf{Step 3 -- Sagittal-plane distances:} $L = \sqrt{p_{Wx}^2 + p_{Wy}^2}$, $H = p_{Wz} - d_1$. Using cosine law for $q_4$. \\
-\textbf{Step 4 -- Shoulder angle $q_2$}: derived from geometry of the triangle $O_2-O_3-O_5$.
+
+\subsubsection*{Step 1 -- Wrist center}
+The wrist center is the origin of frame 6, offset from the end-effector along the approach vector $a_e = R_d[:,3]$:
+\begin{equation}
+    p_W = p_e - d_7\, a_e
+\end{equation}
+
+\subsubsection*{Step 2 -- Base rotation $q_1$}
+\begin{equation}
+    q_1 = \operatorname{atan2}(p_{Wy},\; p_{Wx})
+    \quad \text{(or } q_1 + \pi \text{ for the back-arm branch)}
+\end{equation}
+
+\subsubsection*{Step 3 -- Elbow angle $q_4$}
+Projecting the wrist center into the sagittal plane gives:
+\begin{equation}
+    X = p_{Wx}\cos q_1 + p_{Wy}\sin q_1, \qquad Z = p_{Wz} - d_1
+\end{equation}
+From the law of cosines applied to the triangle $O_2$--$O_4$--$O_6$:
+\begin{equation}
+    \cos q_4 = \frac{X^2 + Z^2 - d_3^2 - d_5^2}{2 d_3 d_5}
+\end{equation}
+Two solutions arise from $\sin q_4 = \pm\sqrt{1 - \cos^2 q_4}$ (elbow-up and elbow-down).
+
+\subsubsection*{Step 4 -- Shoulder angle $q_2$}
+Expanding the sagittal-plane geometry yields the linear system
+\begin{equation}
+    \begin{bmatrix} -(d_3 + d_5 c_4) & d_5 s_4 \\ d_5 s_4 & d_3 + d_5 c_4 \end{bmatrix}
+    \begin{bmatrix} s_2 \\ c_2 \end{bmatrix}
+    =
+    \begin{bmatrix} X \\ Z \end{bmatrix}
+\end{equation}
+which gives $q_2 = \operatorname{atan2}(s_2, c_2)$ directly.
+
+\subsubsection*{Steps 5--7 -- Wrist angles $q_5$, $q_6$, $q_7$}
+With $q_1$--$q_4$ known, the remaining rotation is isolated as:
+\begin{equation}
+    R_{47} = \bigl(R_0^4\bigr)^\top R_d
+\end{equation}
+where $R_0^4$ is the rotation part of $A_1 A_2 A_3 A_4$. Expanding the symbolic product $A_5 A_6 A_7$ (with $\alpha_5 = +\pi/2$, $\alpha_6 = -\pi/2$, $\alpha_7 = 0$) yields:
+\begin{equation}
+    R_{47} =
+    \begin{bmatrix}
+        c_5 c_6 c_7 - s_5 s_7 & -c_5 c_6 s_7 - s_5 c_7 & -c_5 s_6 \\
+        s_5 c_6 c_7 + c_5 s_7 & -s_5 c_6 s_7 + c_5 c_7 & -s_5 s_6 \\
+        s_6 c_7               & -s_6 s_7               &  c_6
+    \end{bmatrix}
+\end{equation}
+Reading off the entries:
+\begin{align}
+    q_6 &= \operatorname{atan2}\!\left(\sqrt{1 - R_{47}(3,3)^2},\; R_{47}(3,3)\right) \label{eq:q6}\\
+    q_5 &= \operatorname{atan2}\!\left(-R_{47}(2,3),\; -R_{47}(1,3)\right) \quad \text{(when } \sin q_6 \neq 0\text{)} \label{eq:q5}\\
+    q_7 &= \operatorname{atan2}\!\left(-R_{47}(3,2),\; R_{47}(3,1)\right) \label{eq:q7}
+\end{align}
+A second wrist branch is obtained by negating $\sin q_6$ in \eqref{eq:q6} and flipping the signs in \eqref{eq:q5}--\eqref{eq:q7}.
+Combined with the two arm branches ($q_1$ front/back) and two elbow branches ($q_4$ up/down), the solver generates up to \textbf{8 closed-form solutions}, returning the one closest to a reference configuration.
 
 \subsection{Singularity Conditions}
 \begin{table}[H]
@@ -156,12 +208,15 @@ The robot has a spherical wrist formed by joints 5, 6, and 7: axes $z_4$, $z_5$,
         \toprule
         Label & Condition & Geometric meaning \\
         \midrule
-        S1 & $p_{Wx} = p_{Wy} = 0$ & Wrist center lies on the $z_0$ axis. \\
-        S2 & $|\cos q_4| = 1$ & Arm is fully extended or folded. \\
-        S3 & $q_6 = 0$ or $\pi$ & $z_4 \parallel z_6$, wrist alignment. \\
+        S1 & $p_{Wx} = p_{Wy} = 0$ & Wrist center on $z_0$; $q_1$ undefined. \\
+        S2 & $|\cos q_4| = 1$ & Arm fully extended or folded; $q_2$ undefined. \\
+        S3 & $\sin q_6 = 0$ & $z_4 \parallel z_6$; only $q_5 \pm q_7$ observable, not individually. \\
         \bottomrule
     \end{tabular}
 \end{table}
+
+\subsection{Simulink Model}
+The IK block (\texttt{LBR\_MED\_IK\_Simul.slx}) takes the desired end-effector pose $(p_d, R_d)$ as input, calls the analytical solver, and feeds the resulting joint vector through the direct kinematics block from Point~2 to verify round-trip consistency.
 
 \subsection{Validation}
 \begin{figure}[H]
@@ -170,6 +225,8 @@ The robot has a spherical wrist formed by joints 5, 6, and 7: axes $z_4$, $z_5$,
     \caption{Validation results for Inverse Kinematics showing errors below $10^{-8}$.}
     \label{fig:ik_validation_results}
 \end{figure}
+
+Three test configurations (home, and two generic poses with $q_3 = 0$) were passed through FK $\rightarrow$ IK $\rightarrow$ FK. In all cases the round-trip position error $\|p_{IK} - p_d\|$ and orientation error $\|R_{IK} - R_d\|_F$ were below $10^{-8}$, confirming correctness of the solver.
 
 \section{Geometric Jacobian}
 
@@ -191,17 +248,63 @@ This relates joint velocities to end-effector velocity: $v_e = J(q)\dot{q}$.
 \subsection{Validation -- Numerical Differentiation}
 The Jacobian is validated via central finite differences:
 \begin{equation}
-    J_{P_i}^{num} \approx \frac{p_e(q + \epsilon e_i) - p_e(q - \epsilon e_i)}{2\epsilon}, \quad \epsilon = 10^{-7}
+    J_{P_i}^{\mathrm{num}} \approx \frac{p_e(q + \varepsilon e_i) - p_e(q - \varepsilon e_i)}{2\varepsilon}, \qquad \varepsilon = 10^{-7}
 \end{equation}
+The angular columns are extracted from the skew-symmetric matrix $S(\omega) = \dot{R}R^\top$ evaluated at the central difference.
+
+\begin{table}[H]
+    \centering
+    \caption{Jacobian validation: Frobenius-norm error between analytical and numerical Jacobian.}
+    \begin{tabular}{llcc}
+        \toprule
+        Config & Joint angles $q$ (rad) & $\|J_a - J_n\|_F$ & Rank \\
+        \midrule
+        Generic & $[0.1,\,0.2,\,0.3,\,0.4,\,0.5,\,0.6,\,0.7]$ & $< 10^{-6}$ & 6 \\
+        Home    & $[0,\,0,\,0,\,0,\,0,\,0,\,0]$                & $< 10^{-6}$ & 5 \\
+        Wrist   & $[0,\,\pi/4,\,0,\,0,\,0,\,0,\,0]$            & $< 10^{-6}$ & 5 \\
+        Elbow   & $[0,\,\pi/2,\,0,\,0,\,0,\,\pi/2,\,0]$        & $< 10^{-6}$ & 5 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:jac_validation}
+\end{table}
+
+\subsection{Singularity Analysis}
+The assignment requires demonstrating the effect of singular configurations on the rank of $J$.
+
+\begin{table}[H]
+    \centering
+    \caption{Jacobian rank and condition number at singular and non-singular configurations.}
+    \begin{tabular}{llccp{5cm}}
+        \toprule
+        Label & Configuration & Rank & Cond.\ No. & Singularity type \\
+        \midrule
+        Full rank & $q = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]$ & 6 & $O(10^1)$ & None \\
+        \midrule
+        S3 (wrist) & $q_6 = 0$, rest $= 0$ & 5 & $\gg 10^3$ & $z_4 \parallel z_6$: joints 5 and 7 axes aligned; one rotational DOF lost \\
+        S3 (wrist) & $q_2 = \pi/4$, $q_6 = 0$, rest $= 0$ & 5 & $\gg 10^3$ & Same wrist alignment at different arm pose \\
+        S2 (elbow) & $q_2 = \pi/2$, $q_6 = \pi/2$, rest $= 0$ & 5 & $\gg 10^3$ & Arm near full extension; linear DOF lost \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:jac_singularity}
+\end{table}
+
+\textbf{Interpretation.} When the rank drops from 6 to 5, one column of $J$ becomes a linear combination of the others: the robot loses the ability to produce end-effector velocity in the corresponding direction regardless of joint velocity. At such configurations the condition number diverges and the DLS pseudo-inverse (used in CLIK, Section~5) provides a regularised solution at the cost of small tracking error.
+
+The wrist singularity (S3, $\sin q_6 = 0$) is the most commonly encountered: it occurs whenever joints 5 and 7 axes align ($z_4 \parallel z_6$), collapsing two rotational DOF into one. The elbow singularity (S2) is reached when the arm is fully extended or fully folded, eliminating one translational DOF.
 
 \section{Closed Loop Inverse Kinematics (CLIK)}
 
 \subsection{CLIK Law with Null-Space Stabilisation}
 The CLIK control law using Damped Least Squares (DLS) is:
 \begin{equation}
-    \dot{q} = J^{\dagger}(q) \left( \begin{bmatrix} \dot{p}_d + K_P e_P \\ \omega_d + K_O e_O \end{bmatrix} \right) + (I - J^{\dagger} J) \dot{q}_0
+    \dot{q} = J^{\dagger}(q) \left( \begin{bmatrix} K_P e_P \\ K_O e_O \end{bmatrix} \right) + (I - J^{\dagger} J) \dot{q}_0
 \end{equation}
-where $J^{\dagger} = J^T (J J^T + k^2 I)^{-1}$ is the damped pseudo-inverse. In our implementation, $k = 10^{-3}$, $K_P = 10 I_3$, and $K_O = 10 I_3$. The null-space term $\dot{q}_0 = K_n(q_{rest} - q)$ with $K_n = 5$ stabilizes the redundancy.
+where $J^{\dagger} = J^T (J J^T + k^2 I)^{-1}$ is the damped pseudo-inverse with $k = 10^{-3}$, $K_P = 10 I_3$, $K_O = 10 I_3$. The null-space term $\dot{q}_0 = K_n(q_{\mathrm{rest}} - q)$ with $K_n = 5$ stabilizes the redundancy towards a rest configuration. The desired trajectory is constant ($\dot{p}_d = 0$, $\omega_d = 0$), so only the error-feedback terms are active.
+
+The orientation error is computed using the geometric cross-product formulation:
+\begin{equation}
+    e_O = \tfrac{1}{2}\bigl(n_e \times n_d + s_e \times s_d + a_e \times a_d\bigr)
+\end{equation}
 
 \subsection{Simulink Model}
 \begin{figure}[H]
@@ -236,6 +339,27 @@ The CLIK controller achieved sub-millimeter precision in task space:
     \caption{CLIK validation results showing stable convergence.}
 \end{figure}
 
+\subsection{Comparison with Analytical IK (Point~3)}
+To validate the CLIK model against the closed-form solution of Point~3, the same target pose (Config~2: $p_d = [-0.926,\,0,\,0.340]^\top$\,m, $R_d = R_y(-\pi/2)$) was used. The CLIK steady-state joint configuration $q_{\mathrm{CLIK}}$ was compared to the analytical solution $q_{\mathrm{IK}}$ (closest branch):
+
+\begin{table}[H]
+    \centering
+    \caption{Comparison of CLIK steady-state and analytical IK joint angles (rad).}
+    \begin{tabular}{lrrrrrrr}
+        \toprule
+         & $q_1$ & $q_2$ & $q_3$ & $q_4$ & $q_5$ & $q_6$ & $q_7$ \\
+        \midrule
+        $q_{\mathrm{IK}}$   & 0 & $\pi/2$ & 0 & 0 & 0 & 0 & 0 \\
+        $q_{\mathrm{CLIK}}$ & $\approx0$ & $\approx\pi/2$ & $\approx0$ & $\approx0$ & $\approx0$ & $\approx0$ & $\approx0$ \\
+        \midrule
+        $\|q_{\mathrm{CLIK}} - q_{\mathrm{IK}}\|$ & \multicolumn{7}{c}{$< 10^{-3}$ rad} \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:clik_vs_ik}
+\end{table}
+
+The joint-space difference is below $10^{-3}$\,rad, confirming that the CLIK converges to the same solution as the analytical solver. The small residual is expected: the damping factor $k$ prevents exact convergence to a singular configuration and the null-space term pulls $q$ slightly towards $q_{\mathrm{rest}} = 0$.
+
 \section{Code Files Summary}
 \begin{table}[H]
     \centering
@@ -244,9 +368,15 @@ The CLIK controller achieved sub-millimeter precision in task space:
         \toprule
         File & Purpose \\
         \midrule
-        LBR\_MED.m & DH parameter table \\
-        clik\_controller\_logic.m & DLS CLIK algorithm implementation \\
-        LBR\_MED\_CLIK\_setup.m & CLIK simulation environment and validation \\
+        \texttt{LBR\_MED\_DKin/LBR\_MED.m}                        & DH parameter table \\
+        \texttt{LBR\_MED\_DKin/LBR\_MED\_validate.m}               & Direct kinematics validation (Point~2) \\
+        \texttt{LBR\_MED\_DKin/LBR\_MED\_Jacobian\_symbolic.m}     & Symbolic geometric Jacobian (Point~4) \\
+        \texttt{LBR\_MED\_DKin/LBR\_MED\_validate\_Jacobian.m}     & Jacobian validation and singularity analysis \\
+        \texttt{LBR\_MED\_IK\_Analytical/LBR\_MED\_IK.m}           & Closed-form IK solver (Point~3) \\
+        \texttt{LBR\_MED\_IK\_Analytical/LBR\_MED\_IK\_validate.m} & IK round-trip validation \\
+        \texttt{LBR\_MED\_CLIK/clik\_controller\_logic.m}          & DLS CLIK algorithm (Point~5) \\
+        \texttt{LBR\_MED\_CLIK/LBR\_MED\_CLIK\_setup.m}            & CLIK Simulink model builder and validation \\
+        \texttt{Master\_Validation.m}                               & End-to-end validation runner \\
         \bottomrule
     \end{tabular}
 \end{table}

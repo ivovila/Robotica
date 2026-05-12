@@ -82,13 +82,8 @@ for k = 1:size(tests, 1)
     
     if rk < 6
         fprintf('  >>> STATUS: SINGULAR CONFIGURATION (Rank < 6) <<<\n');
-        [~, ~, V] = sorted_svd(Ja); % Retrieve null-space vectors (V is 3rd output)
     else
         fprintf('  >>> STATUS: FULL RANK <<<\n');
     end
     fprintf('\n');
-end
-
-function [U, S, V] = sorted_svd(A)
-    [U, S, V] = svd(A);
 end

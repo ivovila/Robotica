@@ -253,11 +253,6 @@ scopeQ = [mdlName '/Scope_q'];
 if isempty(find_system(mdlName, 'Name', 'Scope_q')), add_block('simulink/Sinks/Scope', scopeQ, 'Position', [700, 20, 730, 50]); end
 Simulink.connectBlocks(ph_int.Outport(1), get_param(scopeQ, 'PortHandles').Inport(1));
 
-% --- Run Simulation ---
-fprintf('Running simulation...\n');
-set_param(mdlName, 'StopTime', '5');
-simOut = sim(mdlName);
-
 % Add ToWorkspace for q (if not already there)
 if isempty(find_system(mdlName, 'Name', 'ToWS_q'))
     add_block('simulink/Sinks/To Workspace', [mdlName '/ToWS_q'], 'VariableName', 'q_sim', 'SaveFormat', 'Timeseries', 'Position', [700, 70, 750, 90]);
@@ -279,6 +274,7 @@ end
 
 save_system(mdlName);
 fprintf('Model saved in %s. Running simulation...\n', this_dir);
+set_param(mdlName, 'StopTime', '5');
 simOut = sim(mdlName);
 
 % --- Plot 1: Joint Positions ---

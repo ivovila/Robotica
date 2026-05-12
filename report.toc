@@ -9,14 +9,17 @@
 \contentsline {section}{\numberline {3}Inverse Kinematics (Closed-Form)}{5}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Kinematic Decoupling Approach}{5}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Closed-Form Solution}{6}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Singularity Conditions}{6}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Validation}{6}{subsection.3.4}%
-\contentsline {section}{\numberline {4}Geometric Jacobian}{6}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Definition}{6}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Simulink Model}{7}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Validation -- Numerical Differentiation}{7}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Closed Loop Inverse Kinematics (CLIK)}{7}{section.5}%
-\contentsline {subsection}{\numberline {5.1}CLIK Law with Null-Space Stabilisation}{7}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Simulink Model}{8}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Validation Results}{8}{subsection.5.3}%
-\contentsline {section}{\numberline {6}Code Files Summary}{8}{section.6}%
+\contentsline {subsection}{\numberline {3.3}Singularity Conditions}{7}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Simulink Model}{7}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Validation}{7}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Geometric Jacobian}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Definition}{7}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Simulink Model}{8}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Validation -- Numerical Differentiation}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Singularity Analysis}{8}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Closed Loop Inverse Kinematics (CLIK)}{9}{section.5}%
+\contentsline {subsection}{\numberline {5.1}CLIK Law with Null-Space Stabilisation}{9}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Simulink Model}{9}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Validation Results}{9}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Comparison with Analytical IK (Point~3)}{10}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Code Files Summary}{10}{section.6}%
