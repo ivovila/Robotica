@@ -1,17 +1,12 @@
 function [q] = LBR_MED_IK(p_des, R_des, q_prev)
-    % LBR_MED_IK  Analytical Inverse Kinematics for KUKA LBR Med 7
-    %   p_des: Desired EE position [3x1]
-    %   R_des: Desired EE orientation [3x3]
-    %   q_prev: Previous joint angles (optional, for choosing solution)
+    % Analytical Inverse Kinematics for KUKA LBR Med
     
-    % Robot parameters
     d1 = 0.340;
     d3 = 0.400;
     d5 = 0.400;
     d7 = 0.126;
     
-    % 1. Find wrist center pw
-    % pw = p_des - d7 * R_des * [0;0;1]
+    % wrist center
     ae = R_des(:, 3);
     pw = p_des - d7 * ae;
     
@@ -19,21 +14,16 @@ function [q] = LBR_MED_IK(p_des, R_des, q_prev)
     yw = pw(2);
     zw = pw(3);
     
-    % 2. Solve for q1, q2, q4 (fixing q3 = 0)
-    % There are two solutions for q1: azimuth and azimuth + pi
     q1_opts = [atan2(yw, xw), atan2(-yw, -xw)];
     
-    % Law of cosines for q4 (independent of q1)
-    % R^2 = X^2 + Z^2 = d3^2 + d5^2 + 2*d3*d5*cos(q4)
-    % where X^2 + Z^2 = xw^2 + yw^2 + (zw - d1)^2
+    % law of cosines for q4
     Z = zw - d1;
     dist_sq = xw^2 + yw^2 + Z^2;
     c4 = (dist_sq - d3^2 - d5^2) / (2 * d3 * d5);
-    c4 = max(-1, min(1, c4)); % Clamp for numerical stability
+    c4 = max(-1, min(1, c4));
     s4 = sqrt(1 - c4^2);
     q4_opts = [atan2(s4, c4), atan2(-s4, c4)];
     
-    % Combine q1 and q4 to get 4 possible solutions for (q1, q2, q4)
     q_sol = zeros(7, 8);
     sol_count = 0;
     
@@ -57,9 +47,8 @@ function [q] = LBR_MED_IK(p_des, R_des, q_prev)
                 c2 = sol2(2);
             end
             q2 = atan2(s2, c2);
-            q3 = 0; % Fixed
+            q3 = 0;
             
-            % 3. Orientation (q5, q6, q7)
             A1 = DH_matrix(d1, q1, 0, pi/2);
             A2 = DH_matrix(0, q2, 0, -pi/2);
             A3 = DH_matrix(d3, q3, 0, -pi/2);
@@ -73,7 +62,6 @@ function [q] = LBR_MED_IK(p_des, R_des, q_prev)
             c6 = max(-1, min(1, r33));
             s6_val = sqrt(1 - c6^2);
             
-            % Solution 1: s6 >= 0
             sol_count = sol_count + 1;
             q6 = atan2(s6_val, c6);
             if abs(s6_val) < 1e-6
@@ -89,7 +77,6 @@ function [q] = LBR_MED_IK(p_des, R_des, q_prev)
             end
             q_sol(:, sol_count) = [q1; q2; q3; q4; q5; q6; q7];
             
-            % Solution 2: s6 < 0
             if abs(s6_val) >= 1e-6
                 sol_count = sol_count + 1;
                 q6_alt = atan2(-s6_val, c6);
@@ -100,11 +87,9 @@ function [q] = LBR_MED_IK(p_des, R_des, q_prev)
         end
     end
     
-    % Return one solution (closest to q_prev if provided)
     if nargin > 2 && ~isempty(q_prev)
-        % For each joint, consider 2*pi periodicity
         diff_mat = q_sol(:, 1:sol_count) - repmat(q_prev(:), 1, sol_count);
-        diff_mat = atan2(sin(diff_mat), cos(diff_mat)); % Map to [-pi, pi]
+        diff_mat = atan2(sin(diff_mat), cos(diff_mat));
         dists = sum(diff_mat.^2, 1);
         [~, idx] = min(dists);
         q = q_sol(:, idx);
@@ -115,7 +100,6 @@ end
 
 
 function A = DH_matrix(d, theta, a, alpha)
-    % Standard DH transformation matrix
     ct = cos(theta); st = sin(theta);
     ca = cos(alpha); sa = sin(alpha);
     A = [ct, -st*ca,  st*sa, a*ct;

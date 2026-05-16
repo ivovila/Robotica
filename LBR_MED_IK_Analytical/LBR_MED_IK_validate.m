@@ -1,22 +1,17 @@
-%% LBR_MED_IK_validate.m
-% Validate analytical IK against Direct Kinematics
-
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'LBR_MED_DKin'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'Robotics_Symbolic_Matlab_Toolbox-2'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'RobotX_sim3d'));
 
 fprintf('=== KUKA LBR Med 7 Analytical IK Validation ===\n\n');
 
-% Test Cases from LBR_MED_validate.m
 tests = {
     [0, 0, 0, 0, 0, 0, 0], 'Home position';
     [0.2, -0.3, 0, 0.5, 0.1, -0.4, 0.2], 'Random config (q3=0)';
     [pi/4, pi/3, 0, -pi/6, 0.2, 0.5, -0.3], 'Another random config (q3=0)';
 };
 
-% For random configs, we need to compute the forward kinematics first
 Robot = LBR_MED();
-sym_vars = symvar(Robot); % [q1 q2 q3 q4 q5 q6 q7]
+sym_vars = symvar(Robot);
 
 tol = 1e-6;
 all_pass = true;
@@ -25,25 +20,23 @@ for i = 1:size(tests, 1)
     q_orig = tests{i,1}';
     desc = tests{i,2};
     
-    % 1. Compute Forward Kinematics
-    % We use the symbolic toolbox or manual A matrices
+    % Forward Kinematics
     T_orig = eye(4);
     for j = 1:7
         T_orig = T_orig * DHTransf_local(Robot(j,:), q_orig(j));
     end
-    % Ensure numeric values for IK input to avoid slow symbolic solving
     p_des = double(T_orig(1:3, 4));
     R_des = double(T_orig(1:3, 1:3));
     
     fprintf('Testing %s...\n', desc);
     fprintf('  p_des: [%.4f, %.4f, %.4f]\n', p_des);
     
-    % 2. Compute Inverse Kinematics
+    % Inverse Kinematics
     try
         q_ik = LBR_MED_IK(p_des, R_des, q_orig);
-        q_ik = double(q_ik); % Ensure result is numeric for num2str
+        q_ik = double(q_ik);
         
-        % 3. Verify IK result with FK
+        % verify IK result with FK
         T_ik = eye(4);
         for j = 1:7
             T_ik = T_ik * DHTransf_local(Robot(j,:), q_ik(j));
@@ -76,8 +69,6 @@ else
 end
 
 function A = DHTransf_local(p, qi)
-    % p = [d, theta, a, alpha, offset]
-    % qi is the joint variable replacing p(2)
     d = p(1);
     theta = qi + p(5);
     a = p(3);

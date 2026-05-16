@@ -1,30 +1,23 @@
-%% LBR_MED_Jacobian_validate  Validate geometric Jacobian for KUKA LBR Med 7
-%
-%  This script compares the analytical (symbolic) Jacobian with a
-%  numerical approximation derived from finite differences of the 
-%  direct kinematics.
-
+%% Validate geometric Jacobian for KUKA LBR Med
 toolboxPath = fullfile(fileparts(mfilename('fullpath')), '..', 'RobotX_sim3d');
 addpath(toolboxPath);
 
-fprintf('Building symbolic Jacobian (may take a moment)...\n');
+fprintf('Building symbolic Jacobian...\n');
 J_sym = LBR_MED_Jacobian_symbolic();
 T_sym = DKin(LBR_MED());
 vars  = symvar(LBR_MED());
 fprintf('Done.\n\n');
 
-% Function to evaluate T and J at a given configuration
 eval_T = @(qs) double(subs(T_sym, vars, qs));
 eval_J = @(qs) double(subs(J_sym, vars, qs));
 
-% Numerical Jacobian function
+% Jacobian function
 function Jn = numerical_jacobian(q, eval_T_func)
     dq = 1e-7;
     n = length(q);
     Jn = zeros(6, n);
     
     for i = 1:n
-        % Central difference
         qp = q; qp(i) = qp(i) + dq;
         qm = q; qm(i) = qm(i) - dq;
         
@@ -36,22 +29,17 @@ function Jn = numerical_jacobian(q, eval_T_func)
         pm = Tm(1:3, 4);
         Rm = Tm(1:3, 1:3);
         
-        % Linear part: dp/dqi
         Jn(1:3, i) = (pp - pm) / (2 * dq);
         
-        % Angular part: extraction from S(w) = dR/dqi * R'
-        % Use central difference for dR/dqi and evaluate R at the center
         T0 = eval_T_func(q);
         R0 = T0(1:3, 1:3);
         dRdqi = (Rp - Rm) / (2 * dq);
         Sw = dRdqi * R0';
         
-        % w = [S(3,2); S(1,3); S(2,1)]
         Jn(4:6, i) = [Sw(3,2); Sw(1,3); Sw(2,1)];
     end
 end
 
-% Test configurations
 tests = {
     [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7], 'Random posture (Full Rank)';
     [0, 0, 0, 0, 0, 0, 0], 'Home position (Shoulder/Wrist alignment)';

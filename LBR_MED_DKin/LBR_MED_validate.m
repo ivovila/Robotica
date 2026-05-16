@@ -1,37 +1,15 @@
-%% LBR_MED_validate  Validate direct kinematics for KUKA LBR Med 7 R800
-%
-%  Four configurations whose end-effector pose can be determined
-%  analytically from the DH table without symbolic computation:
-%
-%  Config 1: q = [0 0 0 0 0 0 0]  (home – arm fully extended upward)
-%    d1+d3+d5+d7 = 0.340+0.400+0.400+0.126 = 1.266 m along world z
-%    → p_exp = [0, 0, 1.266]^T        R_exp = I
-%
-%  Config 2: q = [0 pi/2 0 0 0 0 0]  (shoulder bend 90 deg)
-%    Shoulder at height d1 = 0.340 m; remaining links extend
-%    horizontally in -x direction (reach = d3+d5+d7 = 0.926 m)
-%    → p_exp = [-0.926, 0, 0.340]^T   R_exp = Ry(-pi/2)
-%
-%  Config 3: q = [pi/2 0 0 0 0 0 0]  (base spin 90 deg)
-%    Base rotation does not move the tip of a vertical arm
-%    → p_exp = [0, 0, 1.266]^T        R_exp = Rz(pi/2)
-%
-%  Config 4: q = [0 pi/2 0 pi/2 0 0 0] (zigzag bend)
-%    Shoulder tilts forward, elbow tilts back; tip stays closer to base.
-%    → p_exp = [-0.400, 0, 0.866]^T   R_exp = I
-
+%% Validate direct kinematics for KUKA LBR Med
 toolboxPath = fullfile(fileparts(mfilename('fullpath')), '..', 'RobotX_sim3d');
 addpath(toolboxPath);
 
 fprintf('Building symbolic direct kinematics...\n');
 Robot = LBR_MED();
 T_sym = DKin(Robot);
-vars  = symvar(Robot);   % [q1 q2 q3 q4 q5 q6 q7] alphabetical = numerical order
+vars  = symvar(Robot);
 fprintf('Done.\n\n');
 
 eval_T = @(qs) double(subs(T_sym, vars, qs));
 
-% ---- Test cases: {joint angles, expected R, expected p, description} ----
 I = eye(3);
 Rz90 = [0 -1 0; 1 0 0; 0 0 1];
 Ry_90 = [0 0 -1; 0 1 0; 1 0 0];
@@ -43,7 +21,7 @@ tests = {
     [0,    pi/2, 0, pi/2, 0, 0, 0], I,      [-0.400;  0; 0.866],  'zigzag (q2=q4=pi/2)';
 };
 
-fprintf('=== KUKA LBR Med 7 R800 – Direct Kinematics Validation ===\n\n');
+fprintf('=== KUKA LBR Med – Direct Kinematics Validation ===\n\n');
 
 tol = 1e-6;
 allPass = true;

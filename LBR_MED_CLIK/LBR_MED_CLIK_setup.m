@@ -1,8 +1,3 @@
-%% LBR_MED_CLIK_setup.m
-%  Setup script for Closed-Loop Inverse Kinematics (CLIK) of KUKA LBR Med 7
-%  This script generates symbolic components and builds the Simulink model.
-
-% Robust pathing
 this_dir = fileparts(mfilename('fullpath'));
 project_root = fileparts(this_dir);
 addpath(fullfile(project_root, 'LBR_MED_DKin'));
@@ -10,23 +5,23 @@ addpath(fullfile(project_root, 'Robotics_Symbolic_Matlab_Toolbox-2'));
 addpath(fullfile(project_root, 'RobotX_sim3d'));
 addpath(fullfile(project_root, 'LBR_MED_IK_Analytical'));
 
-% --- Clean environment ---
+% clear enviroment
 mdlName = 'LBR_MED_CLIK_Simul';
 if bdIsLoaded(mdlName), close_system(mdlName, 0); end
-clear functions; % Clear cached function blocks
-eval(['clear ', mdlName]); % Clear any variable with the same name
+clear functions;
+eval(['clear ', mdlName]);
 
 fprintf('Initializing symbolic models...\n');
 Robot = LBR_MED();
 n = size(Robot,1);
 vars = symvar(Robot);
 
-% 1. Symbolic Direct Kinematics
+% symbolic DK
 T_sym = DKin(Robot);
 R_sym = T_sym(1:3, 1:3);
 p_sym = T_sym(1:3, 4);
 
-% 2. Symbolic Geometric Jacobian
+% symbolic Geometric Jacobian
 J = sym(zeros(6, n));
 T_mats = cell(n, 1);
 T_accum = eye(4);
@@ -47,17 +42,13 @@ for i = 2:n
 end
 J = simplify(J);
 
-% --- Fix: Use a single vector 'q' for Simulink blocks ---
 q_vec = sym('q', [n, 1], 'real');
-% Substitute q1, q2... with q(1), q(2)...
-% vars is [q1 q2 q3 q4 q5 q6 q7] (alphabetical/numerical)
 R_sym_v = subs(R_sym, vars.', q_vec);
 p_sym_v = subs(p_sym, vars.', q_vec);
 J_v = subs(J, vars.', q_vec);
 
-%% 3. Create Simulink Model
+% Simulink Model
 mdlName = 'LBR_MED_CLIK_Simul';
-% Fix shadowing: ensure we work in the setup script's directory
 cd(this_dir);
 
 fprintf('Saving symbolic models to MAT file for Simulink...\n');
@@ -67,15 +58,12 @@ if bdIsLoaded(mdlName), close_system(mdlName, 0); end
 new_system(mdlName);
 open_system(mdlName);
 
-% --- Parameters ---
 K_pos = 10;
 K_ori = 10;
-Kn_val = 5; % Gain for null space stabilization
+Kn_val = 5; 
 q_rest = zeros(n, 1);
-q0 = [0, 0.2, 0, -0.2, 0, 0.2, 0]'; % Initial joint configuration
+q0 = [0, 0.2, 0, -0.2, 0, 0.2, 0]';
 
-% --- Desired Trajectory (Constant for now) ---
-% Config 3: shoulder tilted 90 deg.
 p_des = [-0.926; 0; 0.340];
 R_des = [0 0 -1; 0 1 0; 1 0 0]; 
 
@@ -83,13 +71,10 @@ add_block('simulink/Sources/Constant', [mdlName '/p_des'], 'Value', mat2str(p_de
 add_block('simulink/Sources/Constant', [mdlName '/R_des'], 'Value', mat2str(R_des), 'Position', [50, 100, 150, 150]);
 add_block('simulink/Sources/Constant', [mdlName '/q_rest'], 'Value', mat2str(q_rest), 'Position', [50, 200, 150, 230]);
 
-% Add constants for Gains so they can be changed without rebuilding the block
 add_block('simulink/Sources/Constant', [mdlName '/K_pos'], 'Value', num2str(K_pos), 'Position', [50, 250, 150, 280]);
 add_block('simulink/Sources/Constant', [mdlName '/K_ori'], 'Value', num2str(K_ori), 'Position', [50, 300, 150, 330]);
 add_block('simulink/Sources/Constant', [mdlName '/Kn_val'], 'Value', num2str(Kn_val), 'Position', [50, 350, 150, 380]);
 
-% --- CLIK Controller Block (MATLAB Function) ---
-% Now we just call the external file
 clikFunc = 'function q_dot = clik_controller(p_des, R_des, p_curr, R_curr, J, q_curr, q_rest, K_pos, K_ori, Kn_val)\n    q_dot = clik_controller_logic(p_des, R_des, p_curr, R_curr, J, q_curr, q_rest, K_pos, K_ori, Kn_val);\nend';
 
 ctrlBlk = [mdlName '/CLIK_Controller'];
@@ -102,7 +87,6 @@ rt = sfroot;
 block = rt.find('-isa', 'Stateflow.EMChart', 'Path', ctrlBlk);
 block.Script = sprintf(clikFunc);
 
-% --- Fix: Explicitly set input/output dimensions to avoid inference errors ---
 inputs = block.find('-isa', 'Stateflow.Data', 'Scope', 'Input');
 for i = 1:length(inputs)
     switch inputs(i).Name
@@ -125,21 +109,21 @@ for i = 1:length(outputs)
         outputs(i).Props.Array.Size = '[7, 1]';
     end
 end
-% --- Forward Kinematics Block ---
+% Forward Kinematics Block
 dkBlk = [mdlName '/ForwardKinematics'];
 if isempty(find_system(mdlName, 'Name', 'ForwardKinematics'))
     matlabFunctionBlock(dkBlk, R_sym_v, p_sym_v, 'Vars', {q_vec});
 end
 set_param(dkBlk, 'Position', [700, 300, 850, 400]);
 
-% --- Jacobian Block ---
+% Jacobian Block
 jacBlk = [mdlName '/Jacobian'];
 if isempty(find_system(mdlName, 'Name', 'Jacobian'))
     matlabFunctionBlock(jacBlk, J_v, 'Vars', {q_vec});
 end
 set_param(jacBlk, 'Position', [700, 150, 850, 250]);
 
-% --- 3D Visualization (Optional) ---
+% 3D Visualization
 try
     if exist('sim3dlib', 'file') || exist('sim3dlib', 'dir')
         fprintf('Adding 3D visualization...\n');
@@ -164,17 +148,9 @@ catch ME
     fprintf('3D visualization skipped: %s\n', ME.message);
 end
 
-% --- Connections ---
-
-% --- Integrator for Joint Positions ---
 intBlk = [mdlName '/Integrator'];
 add_block('simulink/Continuous/Integrator', intBlk, 'InitialCondition', mat2str(q0), 'Position', [600, 50, 630, 100]);
 
-% --- Demux for q (if needed) or just connect vector ---
-% Since I used 'Vars', {vars}, it should take a single input vector.
-
-% --- Connections ---
-% 1. Integrator output (q) -> DKin, Jacobian, and Controller feedback
 ph_int = get_param(intBlk, 'PortHandles');
 ph_dk = get_param(dkBlk, 'PortHandles');
 ph_jac = get_param(jacBlk, 'PortHandles');
@@ -184,17 +160,13 @@ Simulink.connectBlocks(ph_int.Outport(1), ph_dk.Inport(1));
 Simulink.connectBlocks(ph_int.Outport(1), ph_jac.Inport(1));
 Simulink.connectBlocks(ph_int.Outport(1), ph_ctrl.Inport(6)); % q_curr
 
-% 2. DKin outputs -> Controller
 Simulink.connectBlocks(ph_dk.Outport(1), ph_ctrl.Inport(4)); % R_curr
 Simulink.connectBlocks(ph_dk.Outport(2), ph_ctrl.Inport(3)); % p_curr
 
-% 3. Jacobian output -> Controller
 Simulink.connectBlocks(ph_jac.Outport(1), ph_ctrl.Inport(5)); % J
 
-% 4. Controller output -> Integrator input
 Simulink.connectBlocks(ph_ctrl.Outport(1), ph_int.Inport(1)); % q_dot
 
-% 5. Desired inputs
 Simulink.connectBlocks([mdlName '/p_des'], [ctrlBlk '/1']);
 Simulink.connectBlocks([mdlName '/R_des'], [ctrlBlk '/2']);
 Simulink.connectBlocks([mdlName '/q_rest'], [ctrlBlk '/7']);
@@ -202,8 +174,6 @@ Simulink.connectBlocks([mdlName '/K_pos'], [ctrlBlk '/8']);
 Simulink.connectBlocks([mdlName '/K_ori'], [ctrlBlk '/9']);
 Simulink.connectBlocks([mdlName '/Kn_val'], [ctrlBlk '/10']);
 
-% --- Monitoring ---
-% Add displays for current p and R
 dspP = [mdlName '/Display_p_curr'];
 dspR = [mdlName '/Display_R_curr'];
 if isempty(find_system(mdlName, 'Name', 'Display_p_curr')), add_block('simulink/Sinks/Display', dspP, 'Position', [900, 350, 1050, 430]); end
@@ -211,12 +181,10 @@ if isempty(find_system(mdlName, 'Name', 'Display_R_curr')), add_block('simulink/
 Simulink.connectBlocks(ph_dk.Outport(2), get_param(dspP, 'PortHandles').Inport(1));
 Simulink.connectBlocks(ph_dk.Outport(1), get_param(dspR, 'PortHandles').Inport(1));
 
-% Add Display for final q
 dspQ = [mdlName '/Display_q_final'];
 if isempty(find_system(mdlName, 'Name', 'Display_q_final')), add_block('simulink/Sinks/Display', dspQ, 'Position', [900, 50, 1050, 200]); end
 Simulink.connectBlocks(ph_int.Outport(1), get_param(dspQ, 'PortHandles').Inport(1));
 
-% Add Error Calculation and Display
 errFunc = [
 'function [e_p, e_o_norm] = error_calc(p_des, R_des, p_curr, R_curr)\n', ...
 '    e_p = norm(p_des - p_curr);\n', ...
@@ -233,13 +201,11 @@ if isempty(find_system(mdlName, 'Name', 'Error_Monitor'))
     block = sf.find('Path', errBlk, '-isa', 'Stateflow.EMChart');
     block.Script = sprintf(errFunc);
     
-    % Connect Error Monitor
     Simulink.connectBlocks([mdlName '/p_des'], [errBlk '/1']);
     Simulink.connectBlocks([mdlName '/R_des'], [errBlk '/2']);
     Simulink.connectBlocks(ph_dk.Outport(2), [errBlk '/3']); % p_curr
     Simulink.connectBlocks(ph_dk.Outport(1), [errBlk '/4']); % R_curr
     
-    % Add Displays for errors
     dspEP = [mdlName '/Display_PosError'];
     dspEO = [mdlName '/Display_OriError'];
     if isempty(find_system(mdlName, 'Name', 'Display_PosError')), add_block('simulink/Sinks/Display', dspEP, 'Position', [600, 400, 700, 430]); end
@@ -248,21 +214,17 @@ if isempty(find_system(mdlName, 'Name', 'Error_Monitor'))
     Simulink.connectBlocks([errBlk '/2'], [dspEO '/1']);
 end
 
-% Add Scope for joint velocities and positions
 scopeQ = [mdlName '/Scope_q'];
 if isempty(find_system(mdlName, 'Name', 'Scope_q')), add_block('simulink/Sinks/Scope', scopeQ, 'Position', [700, 20, 730, 50]); end
 Simulink.connectBlocks(ph_int.Outport(1), get_param(scopeQ, 'PortHandles').Inport(1));
 
-% Add ToWorkspace for q (if not already there)
 if isempty(find_system(mdlName, 'Name', 'ToWS_q'))
     add_block('simulink/Sinks/To Workspace', [mdlName '/ToWS_q'], 'VariableName', 'q_sim', 'SaveFormat', 'Timeseries', 'Position', [700, 70, 750, 90]);
     Simulink.connectBlocks(ph_int.Outport(1), get_param([mdlName '/ToWS_q'], 'PortHandles').Inport(1));
 end
 
-% Add ToWorkspace for Errors
 if isempty(find_system(mdlName, 'Name', 'ToWS_err'))
     add_block('simulink/Sinks/To Workspace', [mdlName '/ToWS_err'], 'VariableName', 'err_sim', 'SaveFormat', 'Timeseries', 'Position', [700, 520, 750, 540]);
-    % Create a Mux to combine Pos and Ori error for logging
     muxErr = [mdlName '/Mux_Err'];
     if isempty(find_system(mdlName, 'Name', 'Mux_Err'))
         add_block('simulink/Signal Routing/Mux', muxErr, 'Inputs', '2', 'Position', [650, 510, 660, 550]);
@@ -277,7 +239,7 @@ fprintf('Model saved in %s. Running simulation...\n', this_dir);
 set_param(mdlName, 'StopTime', '5');
 simOut = sim(mdlName);
 
-% --- Plot 1: Joint Positions ---
+% Plot 1: Joint Positions
 q_ts = simOut.find('q_sim');
 if ~isempty(q_ts)
     figure('Name', 'Joint Positions');
@@ -290,7 +252,7 @@ if ~isempty(q_ts)
     grid on;
 end
 
-% --- Plot 2: Error Convergence ---
+% Plot 2: Error
 err_ts = simOut.find('err_sim');
 if ~isempty(err_ts)
     figure('Name', 'Error Convergence');
@@ -306,7 +268,7 @@ end
 
 fprintf('CLIK Setup complete.\n');
 
-%% --- Point 3 Validation: Compare CLIK with Analytical IK ---
+%% Compare CLIK with Analytical IK
 fprintf('\n=== Point 3 Validation: Comparing CLIK with Analytical IK ===\n');
 
 if ~isempty(q_ts)
@@ -318,13 +280,11 @@ if ~isempty(q_ts)
     fprintf('CLIK Steady-State Solution (7-DOF):\n');
     disp(q_clik_final');
     
-    % Compute Analytical IK (Point 3) - Pass CLIK final q to find the matching solution
     try
         q_analytical = LBR_MED_IK(p_des, R_des, q_clik_final);
         fprintf('Analytical IK Solution (Point 3, closest to CLIK):\n');
         disp(q_analytical');
         
-        % Task Space Pos Verification
         p_clik = double(subs(p_sym_v, q_vec, q_clik_final));
         R_clik = double(subs(R_sym_v, q_vec, q_clik_final));
         
@@ -348,7 +308,4 @@ if ~isempty(q_ts)
     end
 end
 
-% Return to root
 cd(project_root);
-
-% Remove the nested helper function to avoid variable scope issues
