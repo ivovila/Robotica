@@ -48,7 +48,14 @@ fprintf('\n--- Validating Point 5: Closed-Loop Inverse Kinematics ---\n');
 cd(project_root);
 run('LBR_MED_CLIK_setup.m');
 
+%% --- 6. Phase 2: Trajectory Execution with Trocar (RCM) Constraint ---
+fprintf('\n--- Validating Phase 2: RCM Surgical Trajectory ---\n');
+cd(project_root);
+addpath(fullfile(project_root, 'LBR_MED_Trajectory'));
+run('LBR_MED_Traj_setup.m');
+
 fprintf('\n=== Master Validation Complete ===\n');
 fprintf('Review the command window output for PASS/FAIL status of each component.\n');
 fprintf('Review the CLIK plot for joint convergence.\n');
+fprintf('Review the Phase 2 plots for RCM trajectory validation.\n');
 fprintf('The Simulink model "LBR_MED_CLIK_Simul" is now open and ready for interactive testing.\n');

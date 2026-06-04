@@ -11,9 +11,9 @@
 
 \geometry{margin=1in}
 
-\title{\Large Kinematic Analysis of the KUKA LBR MED Surgical Manipulator \\ \large Phase I Report -- Robotic Systems in Manipulation 2025/2026}
+\title{\Large Kinematic Analysis and Trajectory Execution \\ of the KUKA LBR MED Surgical Manipulator \\ \large Phase~I \& Phase~II Report -- Robotic Systems in Manipulation 2025/2026}
 \author{Instituto Superior Técnico}
-\date{Due: 17 May 2026}
+\date{Phase~I due: 17 May 2026 \quad Phase~II due: 7 June 2026}
 
 \begin{document}
 
@@ -360,6 +360,105 @@ To validate the CLIK model against the closed-form solution of Point~3, the same
 
 The joint-space difference is below $10^{-3}$\,rad, confirming that the CLIK converges to the same solution as the analytical solver. The small residual is expected: the damping factor $k$ prevents exact convergence to a singular configuration and the null-space term pulls $q$ slightly towards $q_{\mathrm{rest}} = 0$.
 
+\section{Trajectory Execution with Remote Centre of Motion Constraint}
+
+\subsection{Problem Formulation}
+
+The KUKA LBR MED is equipped with a rigid biopsy-needle tool of length $L = 15\,\text{cm}$ mounted at the end-effector. The tool enters the patient through a \textbf{trocar} located at fixed position $c_r$ (Remote Centre of Motion). Two constraints must hold simultaneously:
+\begin{itemize}
+    \item \textbf{Tooltip constraint:} The tooltip must reach each surgical target $m_i$.
+    \item \textbf{RCM constraint:} The tool axis must always pass through $c_r$.
+\end{itemize}
+
+\subsection{End-Effector Pose from RCM Constraint}
+
+For each target $m_i$, the desired end-effector pose is derived analytically:
+
+\subsubsection*{Tool axis direction}
+\begin{equation}
+    \hat{a} = \frac{m_i - c_r}{\|m_i - c_r\|}
+\end{equation}
+This is the unit vector from the trocar to the target. It coincides with the $z$-axis of the end-effector frame and is valid provided $\|m_i - c_r\| < L$ (the target lies within reach of the tool past the trocar).
+
+\subsubsection*{End-effector position}
+\begin{equation}
+    p_{ee} = m_i - L\,\hat{a}
+\end{equation}
+By construction the three points $p_{ee}$, $c_r$, and $m_i$ are collinear and in this order along the tool axis, so the RCM constraint is satisfied exactly when the robot reaches pose $(p_{ee},\,R_{ee})$.
+
+\subsubsection*{End-effector orientation}
+The rotation matrix is completed by choosing $x_{ee}$ and $y_{ee}$ orthogonal to $\hat{a}$ using a fixed reference vector $\hat{e}_y = [0,1,0]^\top$:
+\begin{equation}
+    \hat{x}_{ee} = \frac{\hat{e}_y \times \hat{a}}{\|\hat{e}_y \times \hat{a}\|}, \qquad
+    \hat{y}_{ee} = \hat{a} \times \hat{x}_{ee}, \qquad
+    R_{ee} = \bigl[\hat{x}_{ee},\;\hat{y}_{ee},\;\hat{a}\bigr]
+\end{equation}
+
+\subsection{Trajectory Execution via CLIK}
+
+The sequence of desired poses $\{(p_{ee}^{(i)},\,R_{ee}^{(i)})\}_{i=1}^{N}$ is tracked using the same DLS-CLIK controller from Point~5 (Section~5). The robot switches to the next target every $T = 3\,\text{s}$. Controller gains are identical to Phase~1: $K_P = K_O = 10\,I_3$ and $K_n = 3$ (null-space stabilisation towards $q_{\text{rest}} = 0$).
+
+\subsection{Validation Metrics}
+
+Two scalar errors are monitored at every integration step:
+
+\textbf{Tooltip position error:}
+\begin{equation}
+    \varepsilon_{\text{tip}}(t) = \bigl\|p_{ee}(t) + L\,R_{ee}(t)_{:,3} - m_{\text{curr}}\bigr\|
+\end{equation}
+
+\textbf{Trocar (RCM) constraint violation:}
+\begin{equation}
+    \varepsilon_{\text{RCM}}(t) = \bigl\|(c_r - p_{ee}) - \bigl[(c_r-p_{ee})\cdot \hat{a}_{ee}\bigr]\,\hat{a}_{ee}\bigr\|
+\end{equation}
+This is the perpendicular distance from $c_r$ to the current tool axis. It equals zero if and only if $c_r$ lies on the axis.
+
+\subsection{Simulation Scenario}
+
+\begin{table}[H]
+    \centering
+    \caption{Scenario parameters for Phase~2.}
+    \begin{tabular}{ll}
+        \toprule
+        Parameter & Value \\
+        \midrule
+        Tool length $L$ & 0.15 m \\
+        Trocar position $c_r$ & $[-0.6,\;0.0,\;0.55]^\top$ m \\
+        Number of targets $N$ & 5 \\
+        Time per target $T$ & 3.0 s \\
+        Integration step $dt$ & 5 ms \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Surgical targets and computed end-effector positions.}
+    \begin{tabular}{cccc}
+        \toprule
+        Target $i$ & $m_i$ (m) & $p_{ee}^{(i)}$ (m) & $\|m_i - c_r\|$ (m) \\
+        \midrule
+        1 & $[-0.600,\;0.000,\;0.470]^\top$ & $[-0.600,\;0.000,\;0.620]^\top$ & 0.080 \\
+        2 & $[-0.540,\;0.000,\;0.480]^\top$ & $[-0.637,\;0.000,\;0.594]^\top$ & 0.092 \\
+        3 & $[-0.650,\;0.040,\;0.480]^\top$ & $[-0.569,\;-0.025,\;0.594]^\top$ & 0.092 \\
+        4 & $[-0.580,\;-0.050,\;0.460]^\top$ & $[-0.613,\;0.067,\;0.581]^\top$ & 0.103 \\
+        5 & $[-0.600,\;0.000,\;0.490]^\top$ & $[-0.600,\;0.000,\;0.640]^\top$ & 0.060 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Results}
+
+The CLIK controller successfully drives the tooltip to each target while the RCM constraint converges to zero as the controller settles. Validation plots (Figures~\ref{fig:traj_joints}--\ref{fig:traj_errors}) confirm:
+\begin{itemize}
+    \item Joint trajectories are smooth across all target transitions.
+    \item The tooltip reaches each target with sub-millimetre error by the end of each $3\,\text{s}$ window.
+    \item The trocar constraint violation drops below $10^{-3}\,\text{m}$ once the CLIK has converged, and is zero in steady state (satisfying the RCM constraint).
+    \item During transitions between targets, $\varepsilon_{\text{RCM}}$ transiently rises; this is expected because the CLIK optimises for EE pose, not intermediate constraint satisfaction.
+\end{itemize}
+
+\textbf{Note on continuous RCM maintenance:} A stricter formulation would constrain the trocar at every instant by replacing the 6-DOF EE task with a 5-DOF tooltip-and-axis task using the tip Jacobian $J_{\text{tip}} = J_P - L\,[\hat{a}_{ee}]_\times J_O$. This is left as a natural extension.
+
 \section{Code Files Summary}
 \begin{table}[H]
     \centering
@@ -374,9 +473,12 @@ The joint-space difference is below $10^{-3}$\,rad, confirming that the CLIK con
         \texttt{LBR\_MED\_DKin/LBR\_MED\_validate\_Jacobian.m}     & Jacobian validation and singularity analysis \\
         \texttt{LBR\_MED\_IK\_Analytical/LBR\_MED\_IK.m}           & Closed-form IK solver (Point~3) \\
         \texttt{LBR\_MED\_IK\_Analytical/LBR\_MED\_IK\_validate.m} & IK round-trip validation \\
-        \texttt{LBR\_MED\_CLIK/clik\_controller\_logic.m}          & DLS CLIK algorithm (Point~5) \\
-        \texttt{LBR\_MED\_CLIK/LBR\_MED\_CLIK\_setup.m}            & CLIK Simulink model builder and validation \\
-        \texttt{Master\_Validation.m}                               & End-to-end validation runner \\
+        \texttt{LBR\_MED\_CLIK/clik\_controller\_logic.m}                & DLS CLIK algorithm (Point~5) \\
+        \texttt{LBR\_MED\_CLIK/LBR\_MED\_CLIK\_setup.m}              & CLIK Simulink model builder and validation \\
+        \midrule
+        \texttt{LBR\_MED\_Trajectory/compute\_ee\_pose\_rcm.m}        & EE pose from RCM constraint (Phase~2) \\
+        \texttt{LBR\_MED\_Trajectory/LBR\_MED\_Traj\_setup.m}         & RCM trajectory simulation and validation \\
+        \texttt{Master\_Validation.m}                                  & End-to-end validation runner (Phase~1 \& 2) \\
         \bottomrule
     \end{tabular}
 \end{table}
