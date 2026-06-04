@@ -68,110 +68,201 @@ K_ori  = 5;
 Kn_val = 3;
 dt     = 0.005;      % integration step (s)
 T_pt   = 3.0;        % seconds spent per target
-q_rest = zeros(n, 1);
 
-% Initial configuration: analytical IK for first target
-q0 = LBR_MED_IK(p_des_list(:,1), R_des_list(:,:,1), []);
+% Initial configuration: use a hint to prefer q1≈0 (elbow-forward) over q1≈π.
+% Without a hint IK returns q1=atan2(0,-0.6)=π, which is at the joint limit
+% and causes the null-space to rotate the base 180° during the simulation.
+q_hint = [0; pi/4; 0; pi/3; 0; pi/4; 0];
+q0 = LBR_MED_IK(p_des_list(:,1), R_des_list(:,:,1), q_hint);
 if isempty(q0) || any(isnan(q0))
-    q0 = [pi; 0.5; 0; -0.9; 0; 1.2; 0];
+    q0 = [0; 1.4; 0; 0.9; 0; 0.6; 0];
     fprintf('\nFallback q0 used (analytical IK failed).\n');
 else
     fprintf('\nInitial q0 from analytical IK.\n');
 end
+% Anchor null-space to the actual working configuration, not zeros.
+% q_rest=zeros would drag q1 from ~π toward 0, causing a 180° base sweep.
+q_rest = q0;
 
-%% 5. MATLAB CLIK simulation (forward-Euler integration)
-fprintf('\nRunning CLIK trajectory simulation (%d targets × %.1f s each)...\n', N_t, T_pt);
+%% 5. LSPB parameters and per-segment axis-angle precomputation
+%
+%  Cruise velocity ṡ_c > 1/T_pt is chosen as 1.5×the average velocity.
+%  Blend time:  t_c     = T_pt - 1/ṡ_c
+%  Blend accel: s̈_c    = ṡ_c² / (ṡ_c·T_pt - 1)
+s_dot_c  = 1.5 / T_pt;
+t_c      = T_pt - 1 / s_dot_c;
+s_ddot_c = s_dot_c^2 / (s_dot_c * T_pt - 1);
 
-t_vec   = 0 : dt : N_t * T_pt;
+N_seg = N_t - 1;                  % one transition segment per consecutive target pair
+seg_theta_f = zeros(1, N_seg);    % total rotation angle for each segment
+seg_r_axis  = zeros(3, N_seg);    % rotation axis expressed in the R_start body frame
+
+for seg = 1 : N_seg
+    R_s  = R_des_list(:,:,seg);
+    R_n  = R_des_list(:,:,seg+1);
+    R_fi = R_s' * R_n;            % relative rotation in R_start body frame
+
+    cos_th = max(-1, min(1, (trace(R_fi)-1)/2));
+    th_f   = acos(cos_th);
+    seg_theta_f(seg) = th_f;
+
+    if th_f < 1e-8
+        seg_r_axis(:,seg) = [0; 0; 1];   % arbitrary; angle is effectively zero
+    else
+        % Axis from skew-symmetric part of R_fi
+        seg_r_axis(:,seg) = [R_fi(3,2)-R_fi(2,3);
+                              R_fi(1,3)-R_fi(3,1);
+                              R_fi(2,1)-R_fi(1,2)] / (2*sin(th_f));
+    end
+end
+
+%% 6. CLIK simulation — LSPB segments + hold at final target
+%
+%  Simulation layout (same total duration as before):
+%    t in [0,            N_seg*T_pt)  →  N_seg LSPB segments  (4 × 3 s = 12 s)
+%    t in [N_seg*T_pt,   N_t*T_pt ]   →  hold at final target  (1 × 3 s =  3 s)
+t_traj  = N_seg * T_pt;
+t_hold  = T_pt;
+t_end   = t_traj + t_hold;
+
+fprintf('\nRunning CLIK trajectory simulation (%d LSPB segments × %.1f s + %.1f s hold)...\n', ...
+        N_seg, T_pt, t_hold);
+
+t_vec   = 0 : dt : t_end;
 N_steps = length(t_vec);
 
 q_log          = zeros(n, N_steps);
 tip_log        = zeros(3, N_steps);
 trocar_err_log = zeros(1, N_steps);
 pos_err_log    = zeros(1, N_steps);
-tgt_log        = zeros(1, N_steps);
+tgt_log        = zeros(1, N_steps);   % destination target index (integer)
 
 q_curr = q0(:);
 
-for k = 1:N_steps
-    t   = t_vec(k);
-    idx = min(floor(t / T_pt) + 1, N_t);
+for k = 1 : N_steps
+    t = t_vec(k);
 
-    p_des = p_des_list(:, idx);
-    R_des = R_des_list(:, :, idx);
+    %% — Trajectory generator ——————————————————————————————————————————
+    if t < t_traj
+        % Active LSPB segment
+        seg = min(floor(t / T_pt) + 1, N_seg);
+        tau = t - (seg - 1) * T_pt;             % local time in [0, T_pt]
 
-    [p_curr, R_curr] = dk_fun(q_curr);
-    J_curr           = double(J_fun(q_curr));
+        [s_v, sd_v] = lspb_eval(tau, T_pt, s_dot_c, t_c, s_ddot_c);
 
-    % Tooltip position and RCM constraint error
-    a_ee      = R_curr(:, 3);
-    p_tip     = p_curr + L_tool * a_ee;
-    v         = c_r - p_curr;
-    trocar_err = norm(v - dot(v, a_ee) * a_ee);  % perpendicular dist from c_r to tool axis
+        p_s  = p_des_list(:, seg);
+        p_n  = p_des_list(:, seg+1);
+        R_s  = R_des_list(:,:,seg);
+        r_i  = seg_r_axis(:,seg);
+        th_f = seg_theta_f(seg);
 
-    q_log(:, k)       = q_curr;
-    tip_log(:, k)     = p_tip;
+        theta     = s_v  * th_f;
+        theta_dot = sd_v * th_f;
+
+        % Position: p_des = p_start + s·(p_next - p_start)
+        p_des     = p_s + s_v  * (p_n - p_s);
+        p_dot_des = sd_v       * (p_n - p_s);
+
+        % Orientation: R_des = R_start · R(θ, r_i)  via Rodrigues
+        % ω_des in world frame: R_start rotates the body-frame axis r_i
+        R_des     = R_s * rodrigues_rot(r_i, theta);
+        omega_des = R_s * (theta_dot * r_i);
+
+        tgt_log(k) = seg + 1;   % destination target index
+
+    else
+        % Hold at final target — pure feedback, zero feedforward
+        p_des     = p_des_list(:, N_t);
+        R_des     = R_des_list(:,:,N_t);
+        p_dot_des = zeros(3,1);
+        omega_des = zeros(3,1);
+        tgt_log(k) = N_t;
+    end
+
+    %% — Robot state ————————————————————————————————————————————————————
+    [p_cv, R_curr] = dk_fun(q_curr);
+    J_curr         = double(J_fun(q_curr));
+
+    a_ee  = R_curr(:,3);
+    p_tip = p_cv + L_tool * a_ee;
+
+    v_rcm      = c_r - p_cv;
+    trocar_err = norm(v_rcm - dot(v_rcm, a_ee) * a_ee);
+
+    q_log(:,k)        = q_curr;
+    tip_log(:,k)      = p_tip;
     trocar_err_log(k) = trocar_err;
-    pos_err_log(k)    = norm(p_tip - targets(:, idx));
-    tgt_log(k)        = idx;
+    % pos_err: distance from tooltip to the DESTINATION target of this step
+    pos_err_log(k) = norm(p_tip - targets(:, min(tgt_log(k), N_t)));
 
-    q_dot  = clik_controller_logic(p_des, R_des, p_curr, R_curr, ...
-                                    J_curr, q_curr, q_rest, K_pos, K_ori, Kn_val);
+    %% — Feedforward + feedback CLIK ————————————————————————————————————
+    q_dot  = clik_controller_logic(p_des, R_des, p_cv, R_curr, ...
+                 J_curr, q_curr, q_rest, K_pos, K_ori, Kn_val, ...
+                 p_dot_des, omega_des);
     q_curr = q_curr + dt * q_dot;
 end
 
-%% 6. Validation summary
-fprintf('\n=== Phase 2 Validation ===\n');
-fprintf('%-10s %-18s %-18s\n', 'Target', 'Tip error (m)', 'Trocar error (m)');
-for i = 1:N_t
+%% 7. Validation summary
+fprintf('\n=== Phase 2 Validation (LSPB Trajectory) ===\n');
+fprintf('%-10s %-20s %-20s\n', 'Target', 'Tip error (m)', 'Trocar error (m)');
+
+% Target 1: initial error from IK (t = 0)
+fprintf('  1         %-20.4e %-20.4e  [t=0, IK init]\n', ...
+    norm(tip_log(:,1) - targets(:,1)), trocar_err_log(1));
+
+% Targets 2..N_t: arrival error at end of each LSPB segment / hold
+for i = 2 : N_t
     k_end = find(tgt_log == i, 1, 'last');
     if ~isempty(k_end)
-        fprintf('  %d         %-18.4e %-18.4e\n', i, pos_err_log(k_end), trocar_err_log(k_end));
+        fprintf('  %d         %-20.4e %-20.4e\n', i, pos_err_log(k_end), trocar_err_log(k_end));
     end
 end
 
-%% 7. Plots
-% --- Joint trajectories ---
-figure('Name', 'Phase 2 – Joint Trajectories');
+%% 8. Plots (handles captured at creation for reliable export)
+fig_dir = fullfile(project_root, 'figures');
+if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
+
+fj = figure('Name', 'Phase 2 Joint Trajectories');
 plot(t_vec, q_log', 'LineWidth', 1.5);
 hold on;
-for i = 1:N_t-1
-    xline(i*T_pt, 'k--');
-end
-title('Joint Trajectories: RCM Surgical Trajectory');
-xlabel('Time (s)'); ylabel('q (rad)');
-legend({'q_1','q_2','q_3','q_4','q_5','q_6','q_7'}, 'Location', 'best');
+for seg = 1 : N_seg, xline(seg*T_pt, 'k--'); end
+title('Joint Trajectories: LSPB Surgical Trajectory');
+xlabel('Time (s)');  ylabel('q (rad)');
+legend({'q_1','q_2','q_3','q_4','q_5','q_6','q_7'}, 'Location','best');
 grid on;
 
-% --- 3-D tooltip path ---
-figure('Name', 'Phase 2 – 3D Tooltip Trajectory');
+ft = figure('Name', 'Phase 2 3D Tooltip Trajectory');
 plot3(tip_log(1,:), tip_log(2,:), tip_log(3,:), 'b-', 'LineWidth', 1.5);
 hold on;
 scatter3(targets(1,:), targets(2,:), targets(3,:), 150, 'r*', 'LineWidth', 2);
 plot3(c_r(1), c_r(2), c_r(3), 'ko', 'MarkerSize', 15, 'MarkerFaceColor', 'k');
 for i = 1:N_t
     text(targets(1,i)+0.005, targets(2,i), targets(3,i)-0.005, ...
-         sprintf(' m_%d', i), 'FontSize', 10, 'Color', 'r');
+         sprintf(' m_%d',i), 'FontSize', 10, 'Color', 'r');
 end
-legend({'Tooltip path', 'Targets $m_i$', 'Trocar $c_r$'}, ...
-       'Interpreter', 'latex', 'Location', 'best');
-title('Tooltip 3D Trajectory with RCM Constraint');
-xlabel('X (m)'); ylabel('Y (m)'); zlabel('Z (m)');
-grid on; axis equal;
+legend({'Tooltip path','Targets $m_i$','Trocar $c_r$'}, ...
+       'Interpreter','latex','Location','best');
+title('Tooltip 3D Trajectory with RCM Constraint (LSPB)');
+xlabel('X (m)');  ylabel('Y (m)');  zlabel('Z (m)');
+grid on;  axis equal;
 
-% --- Error convergence ---
-figure('Name', 'Phase 2 – Convergence & Constraint');
+fc = figure('Name', 'Phase 2 Convergence and Constraint');
 subplot(2,1,1);
 semilogy(t_vec, pos_err_log + 1e-12, 'b', 'LineWidth', 1.5);
-for i = 1:N_t-1, xline(i*T_pt, 'k--'); end
-title('Tooltip Position Error  \|p_{tip} - m_i\|');
-xlabel('Time (s)'); ylabel('Error (m)'); grid on;
+for seg = 1:N_seg, xline(seg*T_pt, 'k--'); end
+title('Tooltip Distance to Destination  \|p_{tip} - m_i\|');
+xlabel('Time (s)');  ylabel('Error (m)');  grid on;
 
 subplot(2,1,2);
 semilogy(t_vec, trocar_err_log + 1e-12, 'r', 'LineWidth', 1.5);
-for i = 1:N_t-1, xline(i*T_pt, 'k--'); end
+for seg = 1:N_seg, xline(seg*T_pt, 'k--'); end
 title('Trocar Constraint Violation  dist(c_r, tool axis)');
-xlabel('Time (s)'); ylabel('Distance (m)'); grid on;
+xlabel('Time (s)');  ylabel('Distance (m)');  grid on;
+
+% Export — use handles captured above, not findobj
+exportgraphics(fj, fullfile(fig_dir,'phase2_joints.png'),      'Resolution',150);
+exportgraphics(ft, fullfile(fig_dir,'phase2_traj3d.png'),      'Resolution',150);
+exportgraphics(fc, fullfile(fig_dir,'phase2_convergence.png'), 'Resolution',150);
 
 fprintf('\nPhase 2 setup complete.\n');
 cd(project_root);

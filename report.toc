@@ -1,25 +1,33 @@
-\contentsline {section}{\numberline {1}Denavit--Hartenberg Convention}{2}{section.1}%
-\contentsline {subsection}{\numberline {1.1}Robot Description}{2}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}Frame Assignment (Standard DH Convention)}{2}{subsection.1.2}%
-\contentsline {subsection}{\numberline {1.3}DH Parameter Table}{3}{subsection.1.3}%
-\contentsline {section}{\numberline {2}Direct Kinematics}{4}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Method}{4}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Simulink Model}{4}{subsection.2.2}%
+\contentsline {section}{\numberline {1}Denavit--Hartenberg Convention}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Robot Description}{3}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Frame Assignment (Standard DH Convention)}{3}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}DH Parameter Table}{4}{subsection.1.3}%
+\contentsline {section}{\numberline {2}Direct Kinematics}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Method}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Simulink Model}{5}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Validation}{5}{subsection.2.3}%
-\contentsline {section}{\numberline {3}Inverse Kinematics (Closed-Form)}{5}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Kinematic Decoupling Approach}{5}{subsection.3.1}%
+\contentsline {section}{\numberline {3}Inverse Kinematics (Closed-Form)}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Kinematic Decoupling}{6}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Closed-Form Solution}{6}{subsection.3.2}%
 \contentsline {subsection}{\numberline {3.3}Singularity Conditions}{7}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Simulink Model}{7}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Validation}{7}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.4}Validation}{7}{subsection.3.4}%
 \contentsline {section}{\numberline {4}Geometric Jacobian}{7}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Definition}{7}{subsection.4.1}%
 \contentsline {subsection}{\numberline {4.2}Simulink Model}{8}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Validation -- Numerical Differentiation}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.3}Numerical Validation}{8}{subsection.4.3}%
 \contentsline {subsection}{\numberline {4.4}Singularity Analysis}{8}{subsection.4.4}%
-\contentsline {section}{\numberline {5}Closed Loop Inverse Kinematics (CLIK)}{9}{section.5}%
+\contentsline {section}{\numberline {5}Closed-Loop Inverse Kinematics (CLIK)}{9}{section.5}%
 \contentsline {subsection}{\numberline {5.1}CLIK Law with Null-Space Stabilisation}{9}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}Simulink Model}{9}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Validation Results}{9}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Comparison with Analytical IK (Point~3)}{10}{subsection.5.4}%
-\contentsline {section}{\numberline {6}Code Files Summary}{10}{section.6}%
+\contentsline {subsection}{\numberline {5.3}Validation Results}{10}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Comparison with Analytical IK}{10}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Trajectory Execution with Remote Centre of Motion Constraint}{10}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Problem Formulation}{10}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}End-Effector Pose from RCM Geometry}{10}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}LSPB Trajectory Interpolation}{11}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Angle-Axis Orientation Interpolation}{12}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Feedforward CLIK}{12}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Simulation Scenario}{13}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}Results}{13}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}Discussion}{15}{subsection.6.8}%
+\contentsline {section}{\numberline {7}Code File Summary}{16}{section.7}%
